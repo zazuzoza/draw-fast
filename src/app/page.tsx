@@ -5,6 +5,7 @@ import { LiveImageShape, LiveImageShapeUtil } from '@/components/LiveImageShapeU
 import { LiveImageTool,MakeLiveButton } from '@/components/LiveImageTool'
 import { LockupLink } from '@/components/LockupLink'
 import { LiveImageProvider } from '@/hooks/useLiveImage'
+import { useRemoteControl } from '@/hooks/useRemoteControl'
 import * as fal from '@fal-ai/serverless-client'
 import {
 	AssetRecordType,
@@ -121,6 +122,8 @@ function SneakySideEffects() {
 			editor.emit('update-drawings' as any)
 		})
 	}, [editor])
+
+	useRemoteControl(editor)
 
 	return null
 }
