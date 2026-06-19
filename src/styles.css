@@ -1,0 +1,372 @@
+/* ТЗ §8 — dark bg #0d0d0b, amber text #e8c34a, glow, scanlines, faint flicker. */
+
+:root {
+	--bg: #0d0d0b;
+	--amber: #e8c34a;
+	--amber-dim: #8a7430;
+	--font: 'Courier New', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	background: var(--bg);
+	color: var(--amber);
+	font-family: var(--font);
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* CRT scanlines + faint flicker over everything */
+body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 50;
+	background: repeating-linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0) 0px,
+		rgba(0, 0, 0, 0) 2px,
+		rgba(0, 0, 0, 0.18) 3px,
+		rgba(0, 0, 0, 0.18) 4px
+	);
+}
+
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 51;
+	background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+	animation: flicker 7s infinite;
+}
+
+@keyframes flicker {
+	0%,
+	100% {
+		opacity: 0.92;
+	}
+	48% {
+		opacity: 0.96;
+	}
+	50% {
+		opacity: 0.88;
+	}
+	52% {
+		opacity: 0.97;
+	}
+}
+
+.app {
+	display: flex;
+	height: 100%;
+}
+
+/* ── Portrait stage (side) ───────────────────────────── */
+.stage {
+	width: 280px;
+	flex: 0 0 280px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	border-right: 1px solid rgba(232, 195, 74, 0.15);
+	padding: 24px;
+}
+
+.portrait {
+	position: relative;
+	border: 1px solid var(--amber);
+	border-radius: 2px;
+	overflow: hidden;
+	transition:
+		width 0.4s ease,
+		height 0.4s ease,
+		border-color 0.4s ease;
+	box-shadow: 0 0 24px rgba(232, 195, 74, 0.12);
+	animation: emerge 0.7s ease;
+}
+
+@keyframes emerge {
+	from {
+		opacity: 0;
+		filter: blur(8px) brightness(2);
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		filter: blur(0) brightness(1);
+		transform: scale(1);
+	}
+}
+
+.portrait-scan {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0) 0px,
+		rgba(0, 0, 0, 0) 1px,
+		rgba(0, 0, 0, 0.25) 2px,
+		rgba(0, 0, 0, 0.25) 3px
+	);
+	mix-blend-mode: multiply;
+}
+
+.stage-name {
+	font-size: 22px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	text-shadow: 0 0 10px currentColor;
+}
+
+.stage-role {
+	font-size: 12px;
+	color: var(--amber-dim);
+	text-align: center;
+	max-width: 220px;
+}
+
+.phase-tag {
+	margin-top: 8px;
+	font-size: 11px;
+	color: var(--amber-dim);
+	border: 1px solid rgba(232, 195, 74, 0.2);
+	padding: 3px 10px;
+	border-radius: 999px;
+	letter-spacing: 1px;
+}
+
+/* ── Main column ─────────────────────────────────────── */
+.main {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 24px;
+	border-bottom: 1px solid rgba(232, 195, 74, 0.15);
+}
+
+.logo {
+	letter-spacing: 8px;
+	font-size: 15px;
+	color: var(--amber);
+	text-shadow: 0 0 10px rgba(232, 195, 74, 0.5);
+}
+
+.controls {
+	display: flex;
+	gap: 8px;
+}
+
+.controls button {
+	background: transparent;
+	border: 1px solid rgba(232, 195, 74, 0.25);
+	color: var(--amber-dim);
+	font-family: var(--font);
+	font-size: 12px;
+	padding: 5px 10px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+
+.controls button.on,
+.controls button:hover {
+	color: var(--amber);
+	border-color: var(--amber);
+}
+
+.transcript {
+	flex: 1;
+	overflow-y: auto;
+	padding: 28px 32px;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	scroll-behavior: smooth;
+}
+
+.transcript::-webkit-scrollbar {
+	width: 6px;
+}
+.transcript::-webkit-scrollbar-thumb {
+	background: rgba(232, 195, 74, 0.2);
+}
+
+.user-turn {
+	align-self: flex-end;
+	max-width: 70%;
+	color: #c9c2a8;
+	background: rgba(232, 195, 74, 0.06);
+	border: 1px solid rgba(232, 195, 74, 0.12);
+	padding: 8px 14px;
+	border-radius: 2px;
+	white-space: pre-wrap;
+}
+
+.scene {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-width: 80%;
+}
+
+.voice-line {
+	animation: lineIn 0.3s ease;
+}
+
+@keyframes lineIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.voice-name {
+	display: block;
+	font-size: 11px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	opacity: 0.85;
+	margin-bottom: 2px;
+}
+
+.voice-text {
+	display: block;
+	line-height: 1.5;
+	color: var(--amber);
+}
+
+.line-whisper .voice-text {
+	font-size: 13px;
+	opacity: 0.6;
+	font-style: italic;
+}
+.line-normal .voice-text {
+	font-size: 16px;
+}
+.line-shout .voice-text {
+	font-size: 21px;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+}
+
+.caret {
+	animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+.thinking,
+.error {
+	color: var(--amber-dim);
+	font-size: 14px;
+}
+.error {
+	color: #d06040;
+}
+
+/* ── Composer ────────────────────────────────────────── */
+.composer {
+	display: flex;
+	gap: 10px;
+	padding: 16px 24px 22px;
+	border-top: 1px solid rgba(232, 195, 74, 0.15);
+}
+
+.composer textarea {
+	flex: 1;
+	resize: none;
+	background: rgba(232, 195, 74, 0.04);
+	border: 1px solid rgba(232, 195, 74, 0.25);
+	color: var(--amber);
+	font-family: var(--font);
+	font-size: 15px;
+	padding: 12px 14px;
+	border-radius: 2px;
+	outline: none;
+	max-height: 140px;
+}
+
+.composer textarea:focus {
+	border-color: var(--amber);
+	box-shadow: 0 0 12px rgba(232, 195, 74, 0.15);
+}
+
+.composer textarea::placeholder {
+	color: var(--amber-dim);
+}
+
+.composer button {
+	width: 52px;
+	background: transparent;
+	border: 1px solid var(--amber);
+	color: var(--amber);
+	font-size: 20px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+
+.composer button:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+@media (max-width: 720px) {
+	.app {
+		flex-direction: column;
+	}
+	.stage {
+		width: 100%;
+		flex: 0 0 auto;
+		flex-direction: row;
+		justify-content: flex-start;
+		gap: 14px;
+		border-right: none;
+		border-bottom: 1px solid rgba(232, 195, 74, 0.15);
+		padding: 12px 16px;
+	}
+	.stage .portrait {
+		width: 64px !important;
+		height: 64px !important;
+	}
+	.stage-name {
+		font-size: 16px;
+	}
+	.stage-role,
+	.phase-tag {
+		display: none;
+	}
+	.scene,
+	.user-turn {
+		max-width: 100%;
+	}
+}
