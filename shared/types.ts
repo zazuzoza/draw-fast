@@ -22,7 +22,10 @@ export interface Voice {
 	cadence: string
 	/** display colour for frame / name (amber-family palette) */
 	color: string
-	/** true for the seven core voices that always stay in the cast */
+	/** archetypal slots (Beebe) this voice is naturally suited to fill — a hint for
+	 * the casting director and the deterministic slot-filling fallback */
+	affinities: string[]
+	/** true for the seven core voices that anchor the roster */
 	core?: boolean
 }
 
@@ -48,11 +51,20 @@ export interface SceneLine {
 /** A single exchange stored in history. */
 export type Turn = { role: 'user'; content: string } | { role: 'voices'; scene: SceneLine[] }
 
+/** One Beebe archetypal slot filled by a chosen voice (relational role → voice). */
+export interface CastSlot {
+	/** archetype id — see shared/archetypes.ts */
+	archetype: string
+	/** voice id filling this relational role for this user */
+	voice: string
+}
+
 export interface UserState {
 	phase: Phase
 	profile: Profile
-	/** ids of voices, ~7: core + ones drafted from the roster */
-	activeCast: string[]
+	/** the eight archetypal slots, each filled by a voice picked for this user.
+	 * During onboarding it assembles slot by slot; in live all eight are filled. */
+	activeCast: CastSlot[]
 	history: Turn[]
 }
 

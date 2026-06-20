@@ -19,11 +19,16 @@ export const profileSchema = z.object({
 	texture: z.string(),
 })
 
+export const castSlotSchema = z.object({
+	archetype: z.string(),
+	voice: z.string(),
+})
+
 export const castUpdateSchema = z.object({
 	profile: profileSchema,
-	activeCast: z.array(z.string()),
+	activeCast: z.array(castSlotSchema),
 	phase: z.enum(['onboarding', 'live']),
-	introduceVoice: z.string().nullable(),
+	introduce: z.object({ voice: z.string(), archetype: z.string() }).nullable(),
 })
 
 export type SpeakOutput = z.infer<typeof speakSchema>

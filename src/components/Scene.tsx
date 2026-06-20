@@ -72,5 +72,6 @@ function fallbackVoice(id: string) {
 		personality: '',
 		cadence: '',
 		color: '#e8c34a',
+		affinities: [],
 	}
 }

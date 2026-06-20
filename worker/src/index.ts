@@ -2,6 +2,7 @@
 // Orchestrates the two model roles: casting director (analysis) then executor (voices).
 
 import type {
+	CastSlot,
 	Mode,
 	RespondRequest,
 	RespondResponse,
@@ -9,7 +10,8 @@ import type {
 	Turn,
 	UserState,
 } from '../../shared/types'
-import { CORE_IDS, getVoice } from '../../shared/voices'
+import { ARCHETYPES, getArchetype } from '../../shared/archetypes'
+import { ALL_VOICES, getVoice } from '../../shared/voices'
 import { callTool, type AnthropicMessage } from './anthropic'
 import {
 	CAST_UPDATE_TOOL,
@@ -17,8 +19,14 @@ import {
 	executorSystem,
 	onboardingSystem,
 	SPEAK_TOOL,
+	type CastMember,
 } from './prompts'
 import { castUpdateSchema, speakSchema, type CastUpdateOutput } from './schemas'
+
+type Introduce = { voice: string; archetype: string } | null
+
+/** Onboarding wraps up once the chorus is assembled or after this many user turns. */
+const ONBOARDING_SOFT_CAP = 6
 
 interface Env {
 	ANTHROPIC_API_KEY: string
@@ -63,62 +71,100 @@ async function respond(request: Request, env: Env): Promise<Response> {
 	const message = (body.message ?? '').trim()
 	const mode: Mode = body.mode ?? 'default'
 
-	// Onboarding starts with just the host; the chorus assembles from there (ТЗ §5).
+	// Onboarding starts with just the host in the Hero slot; the chorus assembles
+	// the other archetypal slots from there (ТЗ §5 + архетипы Биби).
 	if (!state.activeCast?.length) {
-		state.activeCast = state.phase === 'live' ? [...CORE_IDS] : ['rhetor']
+		state.activeCast =
+			state.phase === 'live'
+				? fillEmptySlots([{ archetype: 'hero', voice: 'rhetor' }])
+				: [{ archetype: 'hero', voice: 'rhetor' }]
 	}
 
 	const isOpening = state.history.length === 0 && !message
 
 	if (message) state.history.push({ role: 'user', content: message })
 
-	// 1. Casting director — updates profile / activeCast / phase.
-	let introduceVoice: string | null = null
+	// 1. Casting director — updates profile / slot assignments / phase.
+	let introduce: Introduce = null
 	if (shouldCast(state, isOpening)) {
 		const update = await runCasting(state, env)
 		state.profile = update.profile
 		state.phase = update.phase
-		introduceVoice = update.introduceVoice
-		state.activeCast = sanitizeCast(update.activeCast, introduceVoice)
-		// Safety net: once the cast has filled out and no one is mid-introduction,
-		// move to live (the introducing turn itself stays onboarding so Ритор can
-		// welcome the new voice diegetically).
-		if (state.phase === 'onboarding' && state.activeCast.length >= 7 && !introduceVoice) {
-			state.phase = 'live'
+		introduce = update.introduce
+		let cast = sanitizeAssignments(update.activeCast, introduce)
+
+		if (state.phase === 'onboarding') {
+			const userTurns = countUserTurns(state)
+			// Soft cap: fill any remaining slots so onboarding can't drag on.
+			if (userTurns >= ONBOARDING_SOFT_CAP) cast = fillEmptySlots(cast)
+			// Move to live once every slot is filled and nobody is mid-introduction
+			// (the introducing turn itself stays onboarding so Ритор can welcome them).
+			if (cast.length >= ARCHETYPES.length && !introduce) state.phase = 'live'
 		}
+		// In live every archetypal slot must be filled.
+		if (state.phase === 'live') cast = fillEmptySlots(cast)
+		state.activeCast = cast
 	}
 
 	// 2. Executor — the scene.
-	const scene = await runExecutor(state, introduceVoice, mode, env)
+	const scene = await runExecutor(state, introduce, mode, env)
 	state.history.push({ role: 'voices', scene })
 
 	const result: RespondResponse = { userState: state, scene }
 	return json(result, 200)
 }
 
+function countUserTurns(state: UserState): number {
+	return state.history.filter((t) => t.role === 'user').length
+}
+
 /** Casting runs densely in onboarding, sparsely in live (ТЗ §2). */
 function shouldCast(state: UserState, isOpening: boolean): boolean {
 	if (isOpening) return false
 	if (state.phase === 'onboarding') return true
-	const userTurns = state.history.filter((t) => t.role === 'user').length
-	return userTurns % 4 === 0
+	return countUserTurns(state) % 4 === 0
 }
 
-// Keep the host always present and the director's choices in order; drop unknown
-// ids. We don't force the whole core in — the cast assembles over onboarding (ТЗ §5).
-function sanitizeCast(ids: string[], introduce: string | null): string[] {
-	const seen = new Set<string>()
-	const out: string[] = []
-	const push = (id: string) => {
-		if (!seen.has(id) && getVoice(id)) {
-			out.push(id)
-			seen.add(id)
+// Normalise the director's slot assignments: known archetype + voice only, one voice
+// per slot and one slot per voice, ordered by archetype. The introduced slot wins; the
+// Hero slot is guaranteed (defaults to rhetor) so there is always a host.
+function sanitizeAssignments(slots: CastSlot[], introduce: Introduce): CastSlot[] {
+	const byArchetype = new Map<string, string>()
+	const usedVoices = new Set<string>()
+	const put = (archetype: string, voice: string) => {
+		if (!getArchetype(archetype) || !getVoice(voice)) return
+		if (byArchetype.has(archetype) || usedVoices.has(voice)) return
+		byArchetype.set(archetype, voice)
+		usedVoices.add(voice)
+	}
+	if (introduce) put(introduce.archetype, introduce.voice)
+	for (const s of slots) put(s.archetype, s.voice)
+	if (!byArchetype.has('hero') && !usedVoices.has('rhetor')) put('hero', 'rhetor')
+	return assignmentList(byArchetype)
+}
+
+// Fill every still-empty archetypal slot with the best unused voice by affinity.
+function fillEmptySlots(slots: CastSlot[]): CastSlot[] {
+	const byArchetype = new Map(slots.map((s) => [s.archetype, s.voice]))
+	const usedVoices = new Set(slots.map((s) => s.voice))
+	for (const a of ARCHETYPES) {
+		if (byArchetype.has(a.id)) continue
+		const pick =
+			ALL_VOICES.find((v) => v.affinities.includes(a.id) && !usedVoices.has(v.id)) ??
+			ALL_VOICES.find((v) => !usedVoices.has(v.id))
+		if (pick) {
+			byArchetype.set(a.id, pick.id)
+			usedVoices.add(pick.id)
 		}
 	}
-	push('rhetor')
-	for (const id of ids) push(id)
-	if (introduce) push(introduce)
-	return out
+	return assignmentList(byArchetype)
+}
+
+function assignmentList(byArchetype: Map<string, string>): CastSlot[] {
+	return ARCHETYPES.filter((a) => byArchetype.has(a.id)).map((a) => ({
+		archetype: a.id,
+		voice: byArchetype.get(a.id)!,
+	}))
 }
 
 async function runCasting(state: UserState, env: Env): Promise<CastUpdateOutput> {
@@ -128,7 +174,7 @@ async function runCasting(state: UserState, env: Env): Promise<CastUpdateOutput>
 		profile: state.profile,
 		activeCast: state.activeCast,
 		phase: state.phase,
-		introduceVoice: null,
+		introduce: null,
 	}
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
@@ -171,19 +217,23 @@ function castingInput(state: UserState): string {
 
 async function runExecutor(
 	state: UserState,
-	introduceVoice: string | null,
+	introduce: Introduce,
 	mode: Mode,
 	env: Env
 ): Promise<SceneLine[]> {
 	const isOnboarding = state.phase === 'onboarding'
-	const introVoice = introduceVoice ? (getVoice(introduceVoice) ?? null) : null
+	const members = castMembers(state)
+	const introMember = resolveIntroduce(introduce)
 	const system = isOnboarding
-		? onboardingSystem(introVoice)
-		: executorSystem(activeVoices(state), state.profile)
+		? onboardingSystem(introMember)
+		: executorSystem(members, state.profile)
 
 	const messages = buildExecutorMessages(state.history)
 	const model = mode === 'deep' ? EXECUTOR_DEEP : EXECUTOR_DEFAULT
-	const fallbackVoice = isOnboarding ? 'rhetor' : 'razor'
+	// Onboarding speaks as the host (Hero slot); live falls back to any member.
+	const fallbackVoice = isOnboarding
+		? (heroVoiceId(state) ?? 'rhetor')
+		: (members[0]?.voice.id ?? 'razor')
 
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
@@ -232,10 +282,26 @@ function buildExecutorMessages(history: Turn[]): AnthropicMessage[] {
 	return msgs
 }
 
-function activeVoices(state: UserState) {
-	return state.activeCast
-		.map((id) => getVoice(id))
-		.filter((v): v is NonNullable<typeof v> => Boolean(v))
+// Resolve the slot assignments into {voice, archetype} members, dropping any unknown ids.
+function castMembers(state: UserState): CastMember[] {
+	const members: CastMember[] = []
+	for (const slot of state.activeCast) {
+		const voice = getVoice(slot.voice)
+		const archetype = getArchetype(slot.archetype)
+		if (voice && archetype) members.push({ voice, archetype })
+	}
+	return members
+}
+
+function heroVoiceId(state: UserState): string | null {
+	return state.activeCast.find((s) => s.archetype === 'hero')?.voice ?? null
+}
+
+function resolveIntroduce(introduce: Introduce): CastMember | null {
+	if (!introduce) return null
+	const voice = getVoice(introduce.voice)
+	const archetype = getArchetype(introduce.archetype)
+	return voice && archetype ? { voice, archetype } : null
 }
 
 function voiceName(id: string): string {

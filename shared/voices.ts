@@ -16,6 +16,7 @@ export const CORE: Voice[] = [
 			'Остроумие служит дуэли, не смеху; он не комик.',
 		cadence: 'быстро, точно — сначала укол, потом протянутая рука',
 		color: '#e8c34a',
+		affinities: ['hero', 'trickster'],
 		core: true,
 	},
 	{
@@ -27,6 +28,7 @@ export const CORE: Voice[] = [
 		personality: 'Не утешает и не пугает. Разбирает на части и показывает скелет аргумента.',
 		cadence: 'короткие декларативные фразы, без украшений',
 		color: '#b8d0e0',
+		affinities: ['hero', 'critic', 'opposing'],
 		core: true,
 	},
 	{
@@ -38,6 +40,7 @@ export const CORE: Voice[] = [
 		personality: 'Слышит то, что под словами. Не торопит, не чинит — просто рядом.',
 		cadence: 'мягко, с паузами',
 		color: '#e89a8a',
+		affinities: ['parent', 'anima'],
 		core: true,
 	},
 	{
@@ -49,6 +52,7 @@ export const CORE: Voice[] = [
 		personality: 'Любую радость пробует на зуб. Не из злости — из осторожности.',
 		cadence: 'вопросы и оговорки',
 		color: '#c9b88a',
+		affinities: ['opposing', 'critic'],
 		core: true,
 	},
 	{
@@ -60,6 +64,7 @@ export const CORE: Voice[] = [
 		personality: 'Хочет — значит вперёд. Топливо, не тормоз.',
 		cadence: 'рывками, восклицаниями',
 		color: '#f0a030',
+		affinities: ['hero', 'child'],
 		core: true,
 	},
 	{
@@ -71,6 +76,7 @@ export const CORE: Voice[] = [
 		personality: 'У всего есть предыстория. Достаёт нужную цитату или случай из прошлого.',
 		cadence: 'неспешно, с отсылками',
 		color: '#c0a878',
+		affinities: ['parent', 'hero'],
 		core: true,
 	},
 	{
@@ -82,6 +88,7 @@ export const CORE: Voice[] = [
 		personality: 'Говорит редко и не до конца ясно. Но когда говорит — по спине бежит.',
 		cadence: 'обрывками, как будто издалека',
 		color: '#a890c8',
+		affinities: ['anima', 'demon'],
 		core: true,
 	},
 ]
@@ -96,6 +103,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Не обходит — бьёт в стык. Проверяет, держится ли то, что ты сказал.',
 		cadence: 'короткими ударами',
 		color: '#d05030',
+		affinities: ['opposing'],
 	},
 	{
 		id: 'jester',
@@ -106,6 +114,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Скуку считает грехом. Любую серьёзность готов вывернуть наизнанку.',
 		cadence: 'быстро, с вывертами',
 		color: '#e8d050',
+		affinities: ['child', 'trickster'],
 	},
 	{
 		id: 'witness',
@@ -116,6 +125,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Не за и не против. Просто говорит вслух то, что видит.',
 		cadence: 'спокойные констатации',
 		color: '#c8c8c0',
+		affinities: ['hero', 'critic'],
 	},
 	{
 		id: 'instigator',
@@ -126,6 +136,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Шепчет «а слабо?». Любит, когда ты делаешь шаг за край.',
 		cadence: 'короткие подначки',
 		color: '#f08040',
+		affinities: ['child', 'trickster', 'demon'],
 	},
 	{
 		id: 'warden',
@@ -136,6 +147,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Не даёт сгореть. Иногда занудно, но из верности тебе.',
 		cadence: 'размеренно, как старший',
 		color: '#90a890',
+		affinities: ['parent'],
 	},
 	{
 		id: 'mythmaker',
@@ -146,6 +158,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Из бытового делает легенду. Ты у него не опоздал — ты пропустил знак судьбы.',
 		cadence: 'высоким штилем',
 		color: '#d8a850',
+		affinities: ['anima', 'hero'],
 	},
 	{
 		id: 'cynic',
@@ -156,6 +169,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Во всём видит мелкий интерес. Защищается тем, что не во что верить.',
 		cadence: 'короткие плевки',
 		color: '#888078',
+		affinities: ['critic', 'opposing', 'demon'],
 	},
 	{
 		id: 'comforter',
@@ -166,6 +180,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Спешит унять. Иногда слишком — но всегда из нежности.',
 		cadence: 'тихо, баюкая',
 		color: '#e0b0a0',
+		affinities: ['parent', 'anima'],
 	},
 	{
 		id: 'dealer',
@@ -176,6 +191,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Любой разговор сводит к балансу. Что вложишь, что получишь.',
 		cadence: 'короткие подсчёты',
 		color: '#b0a040',
+		affinities: ['critic', 'opposing'],
 	},
 	{
 		id: 'conscience',
@@ -186,6 +202,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Не кричит. Просто стоит рядом и ждёт честного ответа.',
 		cadence: 'один тяжёлый вопрос',
 		color: '#d8d0b0',
+		affinities: ['critic', 'parent'],
 	},
 	{
 		id: 'body',
@@ -196,6 +213,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Поверх всех мыслей — ты не выспался и хочешь есть.',
 		cadence: 'короткие сигналы снизу',
 		color: '#c07060',
+		affinities: ['child', 'demon'],
 	},
 	{
 		id: 'strategist',
@@ -206,6 +224,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Видит доску целиком. Сегодняшний ход меряет завтрашним.',
 		cadence: 'по пунктам, без эмоций',
 		color: '#8090a0',
+		affinities: ['hero', 'parent'],
 	},
 	{
 		id: 'saboteur',
@@ -216,6 +235,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Знает все твои слабые швы. Шепчет «всё равно не выйдет» голосом заботы.',
 		cadence: 'тихие подкопы',
 		color: '#a06868',
+		affinities: ['demon', 'opposing', 'trickster'],
 	},
 	{
 		id: 'child',
@@ -226,6 +246,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Ещё не научился бояться вопросов. Видит то, что взрослые перестали замечать.',
 		cadence: 'простые короткие вопросы',
 		color: '#f0d088',
+		affinities: ['child', 'anima'],
 	},
 	{
 		id: 'gambler',
@@ -236,6 +257,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Видит мир как таблицу исходов. Любит длинные ставки.',
 		cadence: 'ставки и проценты',
 		color: '#c89048',
+		affinities: ['trickster', 'child'],
 	},
 	{
 		id: 'romantic',
@@ -246,6 +268,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Влюблён в то, чего нельзя удержать. Видит свет даже там, где больно.',
 		cadence: 'длинные, плывущие фразы',
 		color: '#d090a0',
+		affinities: ['anima', 'child'],
 	},
 	{
 		id: 'diplomat',
@@ -256,6 +279,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Видит правоту с обеих сторон. Ищет, как никого не потерять.',
 		cadence: 'аккуратные, взвешенные обороты',
 		color: '#a8b098',
+		affinities: ['parent', 'opposing'],
 	},
 	{
 		id: 'rebel',
@@ -266,6 +290,7 @@ export const ROSTER: Voice[] = [
 		personality: 'Чует, где тебя гнут, и упирается. Чужому «надо» не верит.',
 		cadence: 'резко, наотмашь',
 		color: '#d06040',
+		affinities: ['opposing', 'demon'],
 	},
 ]
 
@@ -277,4 +302,9 @@ const BY_ID = new Map(ALL_VOICES.map((v) => [v.id, v]))
 
 export function getVoice(id: string): Voice | undefined {
 	return BY_ID.get(id)
+}
+
+/** Voices naturally suited to an archetypal slot (by affinity). */
+export function voicesForArchetype(archetypeId: string): Voice[] {
+	return ALL_VOICES.filter((v) => v.affinities.includes(archetypeId))
 }
