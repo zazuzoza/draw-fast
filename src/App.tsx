@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { OPENING_HOOK } from '../shared/onboarding'
 import type { Mode, UserState } from '../shared/types'
 import { emptyUserState } from '../shared/types'
 import { getVoice } from '../shared/voices'
 import { Composer } from './components/Composer'
+import { OpeningChoices } from './components/OpeningChoices'
 import { Portrait } from './components/Portrait'
 import { Scene } from './components/Scene'
 import { respond } from './lib/api'
@@ -32,7 +34,7 @@ export default function App() {
 					setActiveVoiceId(lastScene.scene[0].voice)
 				}
 			} else {
-				await openHook()
+				await seedOpening()
 			}
 		})()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,20 +45,25 @@ export default function App() {
 		if (el) el.scrollTop = el.scrollHeight
 	}, [state, animating])
 
-	async function openHook() {
-		setLoading(true)
-		setError(null)
-		try {
-			const res = await respond(emptyUserState(), '', mode)
-			await saveState(res.userState)
-			setState(res.userState)
-			setAnimateIndex(res.userState.history.length - 1)
-			setAnimating(true)
-		} catch (e) {
-			setError(String(e))
-		} finally {
-			setLoading(false)
+	// The opener is fixed and rendered locally — no model call. Ритор asks the
+	// «заточенная палка» question; the chips below answer it.
+	async function seedOpening() {
+		const seeded: UserState = {
+			phase: 'onboarding',
+			profile: emptyUserState().profile,
+			activeCast: [{ archetype: 'hero', voice: 'rhetor' }],
+			history: [
+				{
+					role: 'voices',
+					scene: [{ voice: 'rhetor', line: OPENING_HOOK.question, intensity: 'normal' }],
+				},
+			],
 		}
+		setActiveVoiceId('rhetor')
+		setState(seeded)
+		setAnimateIndex(0)
+		setAnimating(true)
+		await saveState(seeded)
 	}
 
 	async function send(text: string) {
@@ -85,16 +92,17 @@ export default function App() {
 
 	async function reset() {
 		await clearState()
-		setState(null)
 		setAnimateIndex(null)
-		setActiveVoiceId('rhetor')
-		booted.current = false
-		await openHook()
-		booted.current = true
+		setError(null)
+		await seedOpening()
 	}
 
 	const activeVoice = getVoice(activeVoiceId) ?? getVoice('rhetor')!
 	const busy = loading || animating
+	const hasUserTurn = state?.history.some((t) => t.role === 'user') ?? false
+	// Show the opening chips until the user has answered, once Ритор finishes asking.
+	const showOpeningChoices =
+		!!state && state.phase === 'onboarding' && !hasUserTurn && !animating && !loading
 
 	return (
 		<div className="app">
@@ -149,6 +157,9 @@ export default function App() {
 							/>
 						)
 					})}
+					{showOpeningChoices && (
+						<OpeningChoices options={OPENING_HOOK.options} disabled={busy} onPick={send} />
+					)}
 					{loading && <div className="thinking">…</div>}
 					{error && <div className="error">{error}</div>}
 				</div>

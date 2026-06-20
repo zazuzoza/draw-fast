@@ -284,6 +284,50 @@ body::after {
 	}
 }
 
+/* ── Opening choice chips ────────────────────────────── */
+.opening-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	max-width: 80%;
+	margin-top: 4px;
+	animation: lineIn 0.4s ease;
+}
+
+.chip {
+	background: rgba(232, 195, 74, 0.05);
+	border: 1px solid rgba(232, 195, 74, 0.35);
+	color: var(--amber);
+	font-family: var(--font);
+	font-size: 14px;
+	padding: 7px 13px;
+	border-radius: 2px;
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.chip:hover:not(:disabled) {
+	border-color: var(--amber);
+	background: rgba(232, 195, 74, 0.12);
+	box-shadow: 0 0 12px rgba(232, 195, 74, 0.18);
+}
+
+.chip:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.opening-hint {
+	font-size: 12px;
+	color: var(--amber-dim);
+	font-style: italic;
+	margin-left: 4px;
+}
+
 .thinking,
 .error {
 	color: var(--amber-dim);
