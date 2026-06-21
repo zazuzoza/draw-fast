@@ -13,5 +13,7 @@
 		"resolveJsonModule": true,
 		"forceConsistentCasingInFileNames": true
 	},
-	"include": ["src/**/*.ts", "../shared/**/*.ts"]
+	"include": ["src/**/*.ts", "../shared/**/*.ts"],
+	"comment": "node-server.ts targets the Node runtime (tsx), not the Workers types — typechecked separately at runtime.",
+	"exclude": ["src/node-server.ts"]
 }

@@ -91,6 +91,11 @@ npm run dev
 
 ## Деплой
 
+**На свой сервер (VPS):** полный runbook в [`DEPLOY.md`](./DEPLOY.md) — фронт статикой,
+бэкенд Node-процессом (`npm start` в `worker/` через `tsx`, переиспользует тот же
+`fetch`-обработчик), nginx/Caddy + HTTPS. 1 ГБ / 1 ядро хватает.
+
+**На Cloudflare:**
 - **Воркер:** `wrangler secret put ANTHROPIC_API_KEY`, затем `npm run worker:deploy`.
 - **Фронт (Cloudflare Pages):** билд-команда `npm run build`, каталог `dist`.
   Задай `VITE_API_BASE` = адрес задеплоенного воркера.
