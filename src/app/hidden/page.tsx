@@ -37,6 +37,7 @@ export default function HiddenDemo() {
 			<ContextEngine />
 			<Library />
 			<Ambush />
+			<Unlock />
 			<Footer />
 			<Styles />
 		</main>
@@ -429,6 +430,114 @@ function Ambush() {
 					{toast}
 				</div>
 			)}
+		</section>
+	)
+}
+
+/* ───────────────────────  ПОКУПКА (без подписки)  ─────────────────────── */
+
+type Pack = { id: string; title: string; sub: string; price: string }
+
+const PACKS: Pack[] = [
+	{ id: 'commute', title: 'Дорога', sub: '8 практик для метро, пробок и пересадок', price: '₽190' },
+	{ id: 'sleep', title: 'Перед сном', sub: 'Тихие остановки, чтобы день отпустил тебя', price: '₽190' },
+	{ id: 'sound', title: 'Тихие саундскейпы', sub: 'Фон и тактильные паттерны для часов', price: '₽250' },
+]
+
+const OWN_KEY = 'hidden_owned'
+
+function Unlock() {
+	const [owned, setOwned] = useState(false)
+	const [packs, setPacks] = useState<string[]>([])
+
+	useEffect(() => {
+		setOwned(localStorage.getItem(OWN_KEY) === '1')
+		try {
+			setPacks(JSON.parse(localStorage.getItem('hidden_packs') || '[]'))
+		} catch {
+			setPacks([])
+		}
+	}, [])
+
+	const buy = () => {
+		localStorage.setItem(OWN_KEY, '1')
+		setOwned(true)
+		vibrate([0, 30, 50, 30])
+	}
+	const reset = () => {
+		localStorage.removeItem(OWN_KEY)
+		localStorage.removeItem('hidden_packs')
+		setOwned(false)
+		setPacks([])
+	}
+	const togglePack = (id: string) => {
+		const next = packs.includes(id) ? packs.filter((p) => p !== id) : [...packs, id]
+		setPacks(next)
+		localStorage.setItem('hidden_packs', JSON.stringify(next))
+		vibrate([0, 25])
+	}
+
+	return (
+		<section className="unlock">
+			<h2>Заплати один раз. Потом можешь уйти.</h2>
+			<p className="sub">
+				Мы правда хотим, чтобы со временем ты перестал нуждаться в приложении. Поэтому —
+				никаких подписок: они заставили бы нас держать тебя подольше. Купил один раз —
+				и оно твоё навсегда, даже когда ты «преисполнился» и закрыл его.
+			</p>
+
+			<div className="priceCard">
+				<div className="priceHead">
+					<div>
+						<div className="priceName">Hidden целиком</div>
+						<div className="priceMeta">Разовая покупка · навсегда · без подписки</div>
+					</div>
+					<div className="priceTag">₽990</div>
+				</div>
+				<ul className="priceList">
+					<li>Полная библиотека практик</li>
+					<li>Тихий сигнал на часах по движению и месту</li>
+					<li>Тактильные практики без телефона (Watch / Wear)</li>
+					<li>Личные триггеры-намерения без ограничений</li>
+					<li>Переносится на новые устройства</li>
+				</ul>
+				{!owned ? (
+					<button className="buyBtn" onClick={buy}>
+						Купить навсегда · ₽990
+					</button>
+				) : (
+					<div className="ownedRow">
+						<span className="ownedBadge">✓ Куплено навсегда</span>
+						<button className="resetBtn" onClick={reset}>
+							сбросить (демо)
+						</button>
+					</div>
+				)}
+				<div className="noSub">Без подписки. Без автосписаний. Без «отмените за 3 дня до».</div>
+			</div>
+
+			<div className="packsWrap">
+				<div className="packsTitle">
+					Необязательные докупки потом — если захочется ещё. Сути не меняют.
+				</div>
+				<div className="packs">
+					{PACKS.map((p) => {
+						const have = packs.includes(p.id)
+						return (
+							<div key={p.id} className={`pack ${have ? 'have' : ''}`}>
+								<div className="packTop">
+									<span className="packTitle">{p.title}</span>
+									<span className="packPrice">{p.price}</span>
+								</div>
+								<div className="packSub">{p.sub}</div>
+								<button className="packBtn" onClick={() => togglePack(p.id)}>
+									{have ? '✓ Добавлено · убрать' : 'Докупить'}
+								</button>
+							</div>
+						)
+					})}
+				</div>
+			</div>
 		</section>
 	)
 }
@@ -999,6 +1108,148 @@ function Styles() {
 			.doneSub {
 				color: var(--mut);
 				margin-bottom: 26px;
+			}
+			/* unlock */
+			.priceCard {
+				background: linear-gradient(180deg, #1a2129, var(--panel));
+				border: 1px solid var(--accent);
+				border-radius: 18px;
+				padding: 24px;
+				max-width: 460px;
+			}
+			.priceHead {
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
+				margin-bottom: 18px;
+			}
+			.priceName {
+				font-size: 20px;
+				font-weight: 600;
+			}
+			.priceMeta {
+				color: var(--mut);
+				font-size: 12.5px;
+				margin-top: 4px;
+			}
+			.priceTag {
+				font-size: 30px;
+				font-weight: 700;
+				color: var(--accent);
+			}
+			.priceList {
+				list-style: none;
+				padding: 0;
+				margin: 0 0 20px;
+			}
+			.priceList li {
+				color: #c4cbd7;
+				font-size: 14px;
+				padding: 6px 0 6px 24px;
+				position: relative;
+			}
+			.priceList li::before {
+				content: '✓';
+				position: absolute;
+				left: 0;
+				color: var(--accent);
+			}
+			.buyBtn {
+				width: 100%;
+				background: var(--accent);
+				color: #07130f;
+				border: none;
+				border-radius: 999px;
+				padding: 14px;
+				font-size: 16px;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			.ownedRow {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.ownedBadge {
+				color: var(--accent);
+				font-weight: 600;
+				font-size: 15px;
+			}
+			.resetBtn {
+				background: none;
+				border: none;
+				color: var(--mut);
+				font-size: 12px;
+				cursor: pointer;
+				text-decoration: underline;
+			}
+			.noSub {
+				color: #6c7484;
+				font-size: 12px;
+				text-align: center;
+				margin-top: 12px;
+			}
+			.packsWrap {
+				margin-top: 30px;
+			}
+			.packsTitle {
+				color: var(--mut);
+				font-size: 14px;
+				margin-bottom: 14px;
+			}
+			.packs {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 12px;
+			}
+			@media (max-width: 760px) {
+				.packs {
+					grid-template-columns: 1fr;
+				}
+			}
+			.pack {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				padding: 16px;
+			}
+			.pack.have {
+				border-color: var(--accent);
+			}
+			.packTop {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 6px;
+			}
+			.packTitle {
+				font-weight: 600;
+			}
+			.packPrice {
+				color: var(--accent);
+				font-size: 14px;
+			}
+			.packSub {
+				color: var(--mut);
+				font-size: 13px;
+				line-height: 1.45;
+				margin-bottom: 14px;
+				min-height: 38px;
+			}
+			.packBtn {
+				width: 100%;
+				background: var(--bg2);
+				border: 1px solid var(--line);
+				color: var(--ink);
+				border-radius: 999px;
+				padding: 9px;
+				font-size: 13px;
+				cursor: pointer;
+			}
+			.pack.have .packBtn {
+				border-color: var(--accent);
+				color: var(--accent);
 			}
 			.foot {
 				padding-top: 40px;
