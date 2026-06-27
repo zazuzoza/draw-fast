@@ -38,4 +38,4 @@ const server = createServer(async (req, res) => {
 	}
 })
 
-server.listen(port, () => console.log(`chorus worker (node) on :${port}`))
+server.listen(port, () => console.log(`khor worker (node) on :${port}`))

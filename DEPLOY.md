@@ -34,9 +34,9 @@ node -v   # >= 18
 ## 2. Код и зависимости
 
 ```bash
-sudo mkdir -p /opt/chorus && sudo chown $USER /opt/chorus
-git clone -b claude/chorus-inner-voices-e80k62 <твой-git-url> /opt/chorus
-cd /opt/chorus
+sudo mkdir -p /opt/khor && sudo chown $USER /opt/khor
+git clone https://github.com/zazuzoza/khor /opt/khor
+cd /opt/khor
 
 npm install
 npm --prefix worker install
@@ -45,34 +45,34 @@ npm --prefix worker install
 ## 3. Сборка фронта
 
 ```bash
-npm run build          # → /opt/chorus/dist
+npm run build          # → /opt/khor/dist
 ```
 
 Фронт обращается к `/respond` относительно своего домена, так что веб-сервер должен
 проксировать `/respond` на бэкенд (см. ниже). Отдельный `VITE_API_BASE` не нужен.
 
 > На 1 ГБ без swap сборка может убиться по OOM. Тогда собери локально
-> (`npm ci && npm run build`) и залей: `rsync -av dist/ user@vps:/opt/chorus/dist/`.
+> (`npm ci && npm run build`) и залей: `rsync -av dist/ user@vps:/opt/khor/dist/`.
 
 ## 4. Бэкенд как сервис (systemd)
 
 Ключ кладём в отдельный файл (не в git):
 
 ```bash
-echo 'ANTHROPIC_API_KEY=sk-ant-ЗАМЕНИ' | sudo tee /etc/chorus.env
-sudo chmod 600 /etc/chorus.env
+echo 'ANTHROPIC_API_KEY=sk-ant-ЗАМЕНИ' | sudo tee /etc/khor.env
+sudo chmod 600 /etc/khor.env
 ```
 
-`/etc/systemd/system/chorus.service`:
+`/etc/systemd/system/khor.service`:
 
 ```ini
 [Unit]
-Description=Chorus backend
+Description=Khor backend
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/chorus/worker
-EnvironmentFile=/etc/chorus.env
+WorkingDirectory=/opt/khor/worker
+EnvironmentFile=/etc/khor.env
 Environment=PORT=8787
 ExecStart=/usr/bin/npm start
 Restart=always
@@ -85,10 +85,10 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-sudo chown -R www-data:www-data /opt/chorus
+sudo chown -R www-data:www-data /opt/khor
 sudo systemctl daemon-reload
-sudo systemctl enable --now chorus
-sudo systemctl status chorus            # active (running)
+sudo systemctl enable --now khor
+sudo systemctl status khor            # active (running)
 curl -s -X OPTIONS localhost:8787/respond -o /dev/null -w '%{http_code}\n'  # 200
 ```
 
@@ -106,8 +106,8 @@ sudo apt-get update && sudo apt-get install -y caddy
 `/etc/caddy/Caddyfile`:
 
 ```
-chorus.твой-домен.рф {
-    root * /opt/chorus/dist
+khor.твой-домен.рф {
+    root * /opt/khor/dist
     encode gzip
     handle /respond* {
         reverse_proxy 127.0.0.1:8787
@@ -123,17 +123,17 @@ chorus.твой-домен.рф {
 sudo systemctl reload caddy
 ```
 
-Caddy сам выпустит и продлит сертификат. Открой `https://chorus.твой-домен.рф`.
+Caddy сам выпустит и продлит сертификат. Открой `https://khor.твой-домен.рф`.
 
 ### Вариант Б — nginx + certbot
 
-`/etc/nginx/sites-available/chorus`:
+`/etc/nginx/sites-available/khor`:
 
 ```nginx
 server {
     listen 80;
-    server_name chorus.твой-домен.рф;
-    root /opt/chorus/dist;
+    server_name khor.твой-домен.рф;
+    root /opt/khor/dist;
     index index.html;
 
     location /respond {
@@ -147,13 +147,13 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/chorus /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/khor /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d chorus.твой-домен.рф
+sudo certbot --nginx -d khor.твой-домен.рф
 ```
 
-> Если на VPS уже занят 80/443 (другой сайт/VPN-панель) — повесь Chorus на отдельный
+> Если на VPS уже занят 80/443 (другой сайт/VPN-панель) — повесь Хор на отдельный
 > поддомен и убедись, что веб-сервер только один слушает эти порты.
 
 ---
@@ -161,21 +161,21 @@ sudo certbot --nginx -d chorus.твой-домен.рф
 ## Обновление
 
 ```bash
-cd /opt/chorus && git pull
+cd /opt/khor && git pull
 npm install && npm --prefix worker install
 npm run build
-sudo systemctl restart chorus
+sudo systemctl restart khor
 ```
 
 ## Диагностика
 
 ```bash
-sudo journalctl -u chorus -f          # логи бэкенда
-sudo systemctl status chorus caddy    # (или nginx)
+sudo journalctl -u khor -f          # логи бэкенда
+sudo systemctl status khor caddy    # (или nginx)
 ```
 
 - Сцены не приходят, в логах `Anthropic 401` → неверный/пустой `ANTHROPIC_API_KEY`.
-- `502` на `/respond` → бэкенд не запущен (`systemctl status chorus`).
+- `502` на `/respond` → бэкенд не запущен (`systemctl status khor`).
 - Белый экран → не собралась статика или неверный `root` в конфиге веб-сервера.
 
 ## Локальная разработка (для сравнения)

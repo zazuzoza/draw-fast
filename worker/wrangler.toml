@@ -1,4 +1,4 @@
-name = "chorus-worker"
+name = "khor-worker"
 main = "src/index.ts"
 compatibility_date = "2024-06-01"
 compatibility_flags = ["nodejs_compat"]
