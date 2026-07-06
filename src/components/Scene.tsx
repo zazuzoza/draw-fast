@@ -1,6 +1,7 @@
 // A scene = one or more lines, revealed sequentially with a pause between voices (ТЗ §8).
+// When `animate` flips to false mid-scene (user skip), every line shows at once.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SceneLine } from '../../shared/types'
 import { getVoice } from '../../shared/voices'
 import { VoiceLine } from './VoiceLine'
@@ -18,8 +19,11 @@ export function Scene({
 	onVoiceChange?: (voiceId: string) => void
 	onComplete?: () => void
 }) {
-	// How many lines are revealed. When not animating, all of them.
-	const [revealed, setRevealed] = useState(animate ? 1 : scene.length)
+	const [revealed, setRevealed] = useState(1)
+	const animateRef = useRef(animate)
+	animateRef.current = animate
+	// When not animating (history reload or skip), everything is visible.
+	const visible = animate ? revealed : scene.length
 
 	useEffect(() => {
 		if (animate && scene.length > 0) onVoiceChange?.(scene[0].voice)
@@ -32,6 +36,7 @@ export function Scene({
 			return
 		}
 		setTimeout(() => {
+			if (!animateRef.current) return // skipped meanwhile
 			const next = index + 1
 			onVoiceChange?.(scene[next].voice)
 			setRevealed((r) => Math.max(r, next + 1))
@@ -40,9 +45,8 @@ export function Scene({
 
 	return (
 		<div className="scene">
-			{scene.slice(0, revealed).map((line, i) => {
+			{scene.slice(0, visible).map((line, i) => {
 				const voice = getVoice(line.voice) ?? fallbackVoice(line.voice)
-				const isLast = i === scene.length - 1
 				const lineAnimates = animate && i === revealed - 1
 				return (
 					<VoiceLine
@@ -53,7 +57,6 @@ export function Scene({
 						animate={lineAnimates}
 						onDone={() => {
 							if (animate) advance(i)
-							else if (isLast) onComplete?.()
 						}}
 					/>
 				)

@@ -1,6 +1,6 @@
-// Message input. Enter sends; Shift+Enter newlines.
+// Message input. Enter sends; Shift+Enter newlines. Refocuses when re-enabled.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export function Composer({
 	disabled,
@@ -10,6 +10,11 @@ export function Composer({
 	onSend: (text: string) => void
 }) {
 	const [text, setText] = useState('')
+	const ref = useRef<HTMLTextAreaElement>(null)
+
+	useEffect(() => {
+		if (!disabled) ref.current?.focus()
+	}, [disabled])
 
 	const send = () => {
 		const trimmed = text.trim()
@@ -21,6 +26,7 @@ export function Composer({
 	return (
 		<div className="composer">
 			<textarea
+				ref={ref}
 				value={text}
 				disabled={disabled}
 				rows={1}

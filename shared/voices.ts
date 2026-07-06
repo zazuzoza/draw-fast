@@ -1,9 +1,11 @@
-// The full cast of inner voices (ТЗ §4). Shared by worker and client.
-// Core (7) is always present. Roster (~18) is drafted under the user.
+// The full roster of inner voices (ТЗ §4). Shared by worker and client.
+// There is no fixed "core" — the cast is the eight Beebe archetypal slots
+// (shared/archetypes.ts), and which voice fills each slot is personalised.
+// `affinities` hints which slots a voice naturally fits.
 
 import type { Voice } from './types'
 
-export const CORE: Voice[] = [
+export const VOICES: Voice[] = [
 	{
 		id: 'rhetor',
 		name: 'Ритор',
@@ -17,7 +19,6 @@ export const CORE: Voice[] = [
 		cadence: 'быстро, точно — сначала укол, потом протянутая рука',
 		color: '#e8c34a',
 		affinities: ['hero', 'trickster'],
-		core: true,
 	},
 	{
 		id: 'razor',
@@ -29,7 +30,6 @@ export const CORE: Voice[] = [
 		cadence: 'короткие декларативные фразы, без украшений',
 		color: '#b8d0e0',
 		affinities: ['hero', 'critic', 'opposing'],
-		core: true,
 	},
 	{
 		id: 'heart',
@@ -41,7 +41,6 @@ export const CORE: Voice[] = [
 		cadence: 'мягко, с паузами',
 		color: '#e89a8a',
 		affinities: ['parent', 'anima'],
-		core: true,
 	},
 	{
 		id: 'skeptic',
@@ -53,7 +52,6 @@ export const CORE: Voice[] = [
 		cadence: 'вопросы и оговорки',
 		color: '#c9b88a',
 		affinities: ['opposing', 'critic'],
-		core: true,
 	},
 	{
 		id: 'drive',
@@ -65,7 +63,6 @@ export const CORE: Voice[] = [
 		cadence: 'рывками, восклицаниями',
 		color: '#f0a030',
 		affinities: ['hero', 'child'],
-		core: true,
 	},
 	{
 		id: 'archivist',
@@ -77,7 +74,6 @@ export const CORE: Voice[] = [
 		cadence: 'неспешно, с отсылками',
 		color: '#c0a878',
 		affinities: ['parent', 'hero'],
-		core: true,
 	},
 	{
 		id: 'oracle',
@@ -89,11 +85,7 @@ export const CORE: Voice[] = [
 		cadence: 'обрывками, как будто издалека',
 		color: '#a890c8',
 		affinities: ['anima', 'demon'],
-		core: true,
 	},
-]
-
-export const ROSTER: Voice[] = [
 	{
 		id: 'ram',
 		name: 'Таран',
@@ -264,9 +256,9 @@ export const ROSTER: Voice[] = [
 		name: 'Романтик',
 		function: 'тянется к красоте и тоске',
 		lens: 'красота, томление, недостижимое',
-		register: 'мечтательный, щемящий',
-		personality: 'Влюблён в то, чего нельзя удержать. Видит свет даже там, где больно.',
-		cadence: 'длинные, плывущие фразы',
+		register: 'мечтательный, негромкий',
+		personality: 'Тянется к красивому и несбыточному. Замечает хорошее в проходных вещах.',
+		cadence: 'фразы подлиннее, плавные',
 		color: '#d090a0',
 		affinities: ['anima', 'child'],
 	},
@@ -294,17 +286,20 @@ export const ROSTER: Voice[] = [
 	},
 ]
 
-export const ALL_VOICES: Voice[] = [...CORE, ...ROSTER]
-
-export const CORE_IDS = CORE.map((v) => v.id)
-
-const BY_ID = new Map(ALL_VOICES.map((v) => [v.id, v]))
+const BY_ID = new Map(VOICES.map((v) => [v.id, v]))
 
 export function getVoice(id: string): Voice | undefined {
 	return BY_ID.get(id)
 }
 
+const BY_NAME = new Map(VOICES.map((v) => [v.name.toLowerCase(), v]))
+
+/** Resolve a model-emitted voice reference: id first, then display name. */
+export function resolveVoice(ref: string): Voice | undefined {
+	return BY_ID.get(ref) ?? BY_NAME.get(ref.trim().toLowerCase())
+}
+
 /** Voices naturally suited to an archetypal slot (by affinity). */
 export function voicesForArchetype(archetypeId: string): Voice[] {
-	return ALL_VOICES.filter((v) => v.affinities.includes(archetypeId))
+	return VOICES.filter((v) => v.affinities.includes(archetypeId))
 }

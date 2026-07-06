@@ -1,6 +1,7 @@
 // Cloudflare Worker — POST /respond (ТЗ §6).
 // Orchestrates the two model roles: casting director (analysis) then executor (voices).
 
+import { OPENING_HOOK } from '../../shared/onboarding'
 import type {
 	CastSlot,
 	Mode,
@@ -10,8 +11,9 @@ import type {
 	Turn,
 	UserState,
 } from '../../shared/types'
+import { initialCast } from '../../shared/types'
 import { ARCHETYPES, getArchetype } from '../../shared/archetypes'
-import { ALL_VOICES, getVoice } from '../../shared/voices'
+import { getVoice, resolveVoice, VOICES } from '../../shared/voices'
 import { callTool, type AnthropicMessage } from './anthropic'
 import {
 	CAST_UPDATE_TOOL,
@@ -27,6 +29,10 @@ type Introduce = { voice: string; archetype: string } | null
 
 /** Onboarding wraps up once the chorus is assembled or after this many user turns. */
 const ONBOARDING_SOFT_CAP = 6
+/** How many recent turns each model call sees. Full history stays in UserState —
+ * older context lives on in the director-maintained profile. */
+const EXECUTOR_WINDOW = 24
+const CASTING_WINDOW = 30
 
 interface Env {
 	ANTHROPIC_API_KEY: string
@@ -74,44 +80,54 @@ async function respond(request: Request, env: Env): Promise<Response> {
 	// Onboarding starts with just the host in the Hero slot; the chorus assembles
 	// the other archetypal slots from there (ТЗ §5 + архетипы Биби).
 	if (!state.activeCast?.length) {
-		state.activeCast =
-			state.phase === 'live'
-				? fillEmptySlots([{ archetype: 'hero', voice: 'rhetor' }])
-				: [{ archetype: 'hero', voice: 'rhetor' }]
+		state.activeCast = state.phase === 'live' ? fillEmptySlots(initialCast()) : initialCast()
 	}
 
 	const isOpening = state.history.length === 0 && !message
 
 	if (message) state.history.push({ role: 'user', content: message })
 
-	// 1. Casting director — updates profile / slot assignments / phase.
-	let introduce: Introduce = null
-	if (shouldCast(state, isOpening)) {
-		const update = await runCasting(state, env)
-		state.profile = update.profile
-		state.phase = update.phase
-		introduce = update.introduce
-		let cast = sanitizeAssignments(update.activeCast, introduce)
+	const wantsCasting = shouldCast(state, isOpening)
+	let scene: SceneLine[]
 
-		if (state.phase === 'onboarding') {
-			const userTurns = countUserTurns(state)
-			// Soft cap: fill any remaining slots so onboarding can't drag on.
-			if (userTurns >= ONBOARDING_SOFT_CAP) cast = fillEmptySlots(cast)
-			// Move to live once every slot is filled and nobody is mid-introduction
-			// (the introducing turn itself stays onboarding so Ритор can welcome them).
-			if (cast.length >= ARCHETYPES.length && !introduce) state.phase = 'live'
-		}
-		// In live every archetypal slot must be filled.
-		if (state.phase === 'live') cast = fillEmptySlots(cast)
-		state.activeCast = cast
+	if (state.phase === 'onboarding') {
+		// Onboarding is serial: the scene must know whom the director introduces.
+		const introduce = wantsCasting ? applyCasting(state, await runCasting(state, env)) : null
+		scene = await runExecutor(state, introduce, mode, env)
+	} else {
+		// Live is parallel: the scene never visualises cast changes, so the director's
+		// verdict can land afterwards — saves a full model round-trip on casting turns.
+		const castingPromise = wantsCasting ? runCasting(state, env) : null
+		scene = await runExecutor(state, null, mode, env)
+		if (castingPromise) applyCasting(state, await castingPromise)
 	}
 
-	// 2. Executor — the scene.
-	const scene = await runExecutor(state, introduce, mode, env)
 	state.history.push({ role: 'voices', scene })
 
 	const result: RespondResponse = { userState: state, scene }
 	return json(result, 200)
+}
+
+/** Fold a casting verdict into the state; returns whom to introduce this scene. */
+function applyCasting(state: UserState, update: CastUpdateOutput): Introduce {
+	const wasLive = state.phase === 'live'
+	state.profile = update.profile
+	// The phase only moves forward — the director can't demote a live user.
+	state.phase = wasLive ? 'live' : update.phase
+	const introduce = update.introduce
+	let cast = sanitizeAssignments(update.activeCast, introduce)
+
+	if (state.phase === 'onboarding') {
+		// Soft cap: fill any remaining slots so onboarding can't drag on.
+		if (countUserTurns(state) >= ONBOARDING_SOFT_CAP) cast = fillEmptySlots(cast)
+		// Move to live once every slot is filled and nobody is mid-introduction
+		// (the introducing turn itself stays onboarding so Ритор can welcome them).
+		if (cast.length >= ARCHETYPES.length && !introduce) state.phase = 'live'
+	}
+	// In live every archetypal slot must be filled.
+	if (state.phase === 'live') cast = fillEmptySlots(cast)
+	state.activeCast = cast
+	return introduce
 }
 
 function countUserTurns(state: UserState): number {
@@ -150,8 +166,8 @@ function fillEmptySlots(slots: CastSlot[]): CastSlot[] {
 	for (const a of ARCHETYPES) {
 		if (byArchetype.has(a.id)) continue
 		const pick =
-			ALL_VOICES.find((v) => v.affinities.includes(a.id) && !usedVoices.has(v.id)) ??
-			ALL_VOICES.find((v) => !usedVoices.has(v.id))
+			VOICES.find((v) => v.affinities.includes(a.id) && !usedVoices.has(v.id)) ??
+			VOICES.find((v) => !usedVoices.has(v.id))
 		if (pick) {
 			byArchetype.set(a.id, pick.id)
 			usedVoices.add(pick.id)
@@ -197,18 +213,32 @@ async function runCasting(state: UserState, env: Env): Promise<CastUpdateOutput>
 	return fallback
 }
 
+// The opening chips carry a hidden diagnostic note; surface it to the director
+// when the user's first message matches one of them.
+function openingSignal(state: UserState): string | null {
+	const first = state.history.find((t) => t.role === 'user')
+	if (!first || first.role !== 'user') return null
+	const picked = OPENING_HOOK.options.find(
+		(o) => o.label.toLowerCase() === first.content.trim().toLowerCase()
+	)
+	return picked ? `Скрытый сигнал первого выбора («${picked.label}»): ${picked.reveals}` : null
+}
+
 function castingInput(state: UserState): string {
 	const transcript = state.history
+		.slice(-CASTING_WINDOW)
 		.map((t) => {
 			if (t.role === 'user') return `ПОЛЬЗОВАТЕЛЬ: ${t.content}`
 			return t.scene.map((l) => `${voiceName(l.voice)}: ${l.line}`).join('\n')
 		})
 		.join('\n')
+	const signal = state.phase === 'onboarding' ? openingSignal(state) : null
 	return [
 		`Фаза: ${state.phase}`,
 		`Текущий profile: ${JSON.stringify(state.profile)}`,
 		`Текущий activeCast: ${JSON.stringify(state.activeCast)}`,
-		`Ходов пользователя: ${state.history.filter((t) => t.role === 'user').length}`,
+		`Ходов пользователя: ${countUserTurns(state)}`,
+		...(signal ? [signal] : []),
 		'',
 		'РАЗГОВОР:',
 		transcript || '(пусто)',
@@ -231,9 +261,14 @@ async function runExecutor(
 	const messages = buildExecutorMessages(state.history)
 	const model = mode === 'deep' ? EXECUTOR_DEEP : EXECUTOR_DEFAULT
 	// Onboarding speaks as the host (Hero slot); live falls back to any member.
-	const fallbackVoice = isOnboarding
-		? (heroVoiceId(state) ?? 'rhetor')
-		: (members[0]?.voice.id ?? 'razor')
+	const fallbackVoice = heroVoiceId(state) ?? members[0]?.voice.id ?? 'rhetor'
+	// A dropped connection stays in character instead of surfacing a raw error.
+	const fallbackScene: SceneLine[] = [
+		{ voice: fallbackVoice, line: '…сорвалось. Скажи ещё раз.', intensity: 'whisper' },
+	]
+	// Voices allowed on stage this scene: the cast plus whoever is being introduced.
+	const allowed = new Set(members.map((m) => m.voice.id))
+	if (introMember) allowed.add(introMember.voice.id)
 
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
@@ -246,38 +281,50 @@ async function runExecutor(
 				maxTokens: 1024,
 			})
 			const parsed = speakSchema.parse(raw)
-			return parsed.scene.map((l) => ({
-				voice: l.voice,
-				line: l.line,
-				intensity: l.intensity ?? 'normal',
-			}))
+			const scene = normalizeScene(parsed.scene, allowed)
+			if (scene.length > 0) return scene
+			throw new Error('scene had no voices from the active cast')
 		} catch (err) {
 			if (attempt === 1) {
 				console.error('executor failed, falling back:', err)
-				return [
-					{
-						voice: fallbackVoice,
-						line: '…',
-						intensity: 'whisper',
-					},
-				]
+				return fallbackScene
 			}
 		}
 	}
-	return [{ voice: fallbackVoice, line: '…', intensity: 'whisper' }]
+	return fallbackScene
+}
+
+// The model may emit a display name instead of an id, or wander off-cast.
+// Resolve refs and keep only voices actually on stage.
+function normalizeScene(
+	lines: Array<{ voice: string; line: string; intensity?: SceneLine['intensity'] }>,
+	allowed: Set<string>
+): SceneLine[] {
+	const out: SceneLine[] = []
+	for (const l of lines) {
+		const voice = resolveVoice(l.voice)
+		if (!voice || !allowed.has(voice.id)) continue
+		out.push({ voice: voice.id, line: l.line, intensity: l.intensity ?? 'normal' })
+	}
+	return out
 }
 
 function buildExecutorMessages(history: Turn[]): AnthropicMessage[] {
-	const msgs: AnthropicMessage[] = history.map((t) => {
+	const msgs: AnthropicMessage[] = history.slice(-EXECUTOR_WINDOW).map((t) => {
 		if (t.role === 'user') return { role: 'user' as const, content: t.content }
 		return {
 			role: 'assistant' as const,
 			content: t.scene.map((l) => `${voiceName(l.voice)}: ${l.line}`).join('\n'),
 		}
 	})
-	// The conversation must start with a user message; the hook opens with no prior input.
+	// The conversation must start with a user message. At the true start that means
+	// the hook instruction; when the window merely cut mid-conversation, a neutral marker.
 	if (msgs.length === 0 || msgs[0].role === 'assistant') {
-		msgs.unshift({ role: 'user', content: '[Начало разговора. Открой крючком.]' })
+		const atStart = history.length <= EXECUTOR_WINDOW
+		msgs.unshift({
+			role: 'user',
+			content: atStart ? '[Начало разговора. Открой крючком.]' : '[…разговор продолжается]',
+		})
 	}
 	return msgs
 }

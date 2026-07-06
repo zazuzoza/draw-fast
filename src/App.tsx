@@ -1,101 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
 import { OPENING_HOOK } from '../shared/onboarding'
-import type { Mode, UserState } from '../shared/types'
-import { emptyUserState } from '../shared/types'
 import { getVoice } from '../shared/voices'
+import { CastStrip } from './components/CastStrip'
 import { Composer } from './components/Composer'
 import { OpeningChoices } from './components/OpeningChoices'
 import { Portrait } from './components/Portrait'
 import { Scene } from './components/Scene'
-import { respond } from './lib/api'
-import { clearState, loadState, saveState } from './lib/db'
+import { useChorus } from './hooks/useChorus'
+import { useEffect, useRef } from 'react'
 
 export default function App() {
-	const [state, setState] = useState<UserState | null>(null)
-	const [loading, setLoading] = useState(false)
-	const [animating, setAnimating] = useState(false)
-	const [animateIndex, setAnimateIndex] = useState<number | null>(null)
-	const [activeVoiceId, setActiveVoiceId] = useState<string>('rhetor')
-	const [mode, setMode] = useState<Mode>('default')
-	const [error, setError] = useState<string | null>(null)
+	const chorus = useChorus()
+	const {
+		state,
+		loading,
+		animating,
+		animateIndex,
+		activeVoiceId,
+		setActiveVoiceId,
+		mode,
+		setMode,
+		error,
+		send,
+		reset,
+		skipAnimation,
+		finishAnimation,
+	} = chorus
+
 	const transcriptRef = useRef<HTMLDivElement>(null)
-	const booted = useRef(false)
-
-	// Boot: load saved state or open with the hook.
-	useEffect(() => {
-		if (booted.current) return
-		booted.current = true
-		;(async () => {
-			const saved = await loadState()
-			if (saved && saved.history.length > 0) {
-				setState(saved)
-				const lastScene = [...saved.history].reverse().find((t) => t.role === 'voices')
-				if (lastScene && lastScene.role === 'voices' && lastScene.scene[0]) {
-					setActiveVoiceId(lastScene.scene[0].voice)
-				}
-			} else {
-				await seedOpening()
-			}
-		})()
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [])
-
 	useEffect(() => {
 		const el = transcriptRef.current
 		if (el) el.scrollTop = el.scrollHeight
 	}, [state, animating])
-
-	// The opener is fixed and rendered locally — no model call. Ритор asks the
-	// «заточенная палка» question; the chips below answer it.
-	async function seedOpening() {
-		const seeded: UserState = {
-			phase: 'onboarding',
-			profile: emptyUserState().profile,
-			activeCast: [{ archetype: 'hero', voice: 'rhetor' }],
-			history: [
-				{
-					role: 'voices',
-					scene: [{ voice: 'rhetor', line: OPENING_HOOK.question, intensity: 'normal' }],
-				},
-			],
-		}
-		setActiveVoiceId('rhetor')
-		setState(seeded)
-		setAnimateIndex(0)
-		setAnimating(true)
-		await saveState(seeded)
-	}
-
-	async function send(text: string) {
-		if (!state || loading) return
-		// optimistic: show the user's line immediately
-		const optimistic: UserState = {
-			...state,
-			history: [...state.history, { role: 'user', content: text }],
-		}
-		setState(optimistic)
-		setLoading(true)
-		setError(null)
-		try {
-			const res = await respond(state, text, mode)
-			await saveState(res.userState)
-			setState(res.userState)
-			setAnimateIndex(res.userState.history.length - 1)
-			setAnimating(true)
-		} catch (e) {
-			setError(String(e))
-			setState(state) // roll back the optimistic turn
-		} finally {
-			setLoading(false)
-		}
-	}
-
-	async function reset() {
-		await clearState()
-		setAnimateIndex(null)
-		setError(null)
-		await seedOpening()
-	}
 
 	const activeVoice = getVoice(activeVoiceId) ?? getVoice('rhetor')!
 	const busy = loading || animating
@@ -103,6 +38,10 @@ export default function App() {
 	// Show the opening chips until the user has answered, once Ритор finishes asking.
 	const showOpeningChoices =
 		!!state && state.phase === 'onboarding' && !hasUserTurn && !animating && !loading
+
+	function confirmReset() {
+		if (window.confirm('Начать заново? Разговор и собранный хор сотрутся.')) void reset()
+	}
 
 	return (
 		<div className="app">
@@ -112,6 +51,7 @@ export default function App() {
 					{activeVoice.name}
 				</div>
 				<div className="stage-role">{activeVoice.function}</div>
+				{state && <CastStrip cast={state.activeCast} activeVoiceId={activeVoiceId} />}
 				{state && (
 					<div className="phase-tag">
 						{state.phase === 'onboarding' ? 'знакомство' : `хор · ${state.activeCast.length}`}
@@ -126,17 +66,17 @@ export default function App() {
 						<button
 							className={mode === 'deep' ? 'on' : ''}
 							title="Жирная сцена (Opus)"
-							onClick={() => setMode((m) => (m === 'deep' ? 'default' : 'deep'))}
+							onClick={() => setMode(mode === 'deep' ? 'default' : 'deep')}
 						>
 							{mode === 'deep' ? 'глубже ●' : 'глубже ○'}
 						</button>
-						<button title="Начать заново" onClick={reset}>
+						<button title="Начать заново" onClick={confirmReset}>
 							↺
 						</button>
 					</div>
 				</header>
 
-				<div className="transcript" ref={transcriptRef}>
+				<div className="transcript" ref={transcriptRef} onClick={skipAnimation}>
 					{state?.history.map((turn, i) => {
 						if (turn.role === 'user') {
 							return (
@@ -149,11 +89,9 @@ export default function App() {
 							<Scene
 								key={i}
 								scene={turn.scene}
-								animate={i === animateIndex}
+								animate={i === animateIndex && animating}
 								onVoiceChange={setActiveVoiceId}
-								onComplete={() => {
-									if (i === animateIndex) setAnimating(false)
-								}}
+								onComplete={finishAnimation}
 							/>
 						)
 					})}

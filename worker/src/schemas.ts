@@ -8,8 +8,9 @@ export const sceneLineSchema = z.object({
 	intensity: z.enum(['whisper', 'normal', 'shout']).default('normal'),
 })
 
+// max 8 = the full chorus, one line per archetypal slot
 export const speakSchema = z.object({
-	scene: z.array(sceneLineSchema).min(1).max(7),
+	scene: z.array(sceneLineSchema).min(1).max(8),
 })
 
 export const profileSchema = z.object({

@@ -140,6 +140,35 @@ body::after {
 	max-width: 220px;
 }
 
+.cast-strip {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 6px;
+	margin-top: 10px;
+	max-width: 230px;
+}
+
+.cast-chip {
+	border-radius: 2px;
+	opacity: 0.55;
+	filter: saturate(0.7);
+	transition:
+		opacity 0.3s ease,
+		filter 0.3s ease,
+		transform 0.3s ease;
+}
+
+.cast-chip .portrait {
+	box-shadow: none;
+}
+
+.cast-chip.active {
+	opacity: 1;
+	filter: none;
+	transform: translateY(-2px);
+}
+
 .phase-tag {
 	margin-top: 8px;
 	font-size: 11px;

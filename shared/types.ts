@@ -25,8 +25,6 @@ export interface Voice {
 	/** archetypal slots (Beebe) this voice is naturally suited to fill — a hint for
 	 * the casting director and the deterministic slot-filling fallback */
 	affinities: string[]
-	/** true for the seven core voices that anchor the roster */
-	core?: boolean
 }
 
 /** The casting-director-maintained portrait of the user (ТЗ §3). */
@@ -79,11 +77,16 @@ export interface RespondResponse {
 	scene: SceneLine[]
 }
 
+/** The chorus assembles from a single voice: the host in the Hero slot (ТЗ §5). */
+export function initialCast(): CastSlot[] {
+	return [{ archetype: 'hero', voice: 'rhetor' }]
+}
+
 export function emptyUserState(): UserState {
 	return {
 		phase: 'onboarding',
 		profile: { summary: '', drives: [], defenses: [], texture: '' },
-		activeCast: [],
+		activeCast: initialCast(),
 		history: [],
 	}
 }

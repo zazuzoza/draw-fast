@@ -2,7 +2,7 @@
 
 import type { Profile, Voice } from '../../shared/types'
 import { ARCHETYPES, type Archetype } from '../../shared/archetypes'
-import { ALL_VOICES } from '../../shared/voices'
+import { VOICES } from '../../shared/voices'
 
 function voiceLine(v: Voice): string {
 	return `- ${v.name} (${v.id}) — делает: ${v.function}; видит: ${v.lens}; звучит: ${v.register}. ${v.personality} Речь: ${v.cadence}. Тяготеет к ролям: ${v.affinities.join(', ')}.`
@@ -22,6 +22,14 @@ function memberLine(m: CastMember): string {
 	)
 }
 
+function profileBlock(profile: Profile): string {
+	const parts = [profile.summary || '(пока неизвестен)']
+	if (profile.texture) parts.push(`Фактура речи: ${profile.texture}`)
+	if (profile.drives.length) parts.push(`Движет: ${profile.drives.join('; ')}`)
+	if (profile.defenses.length) parts.push(`Закрывается: ${profile.defenses.join('; ')}`)
+	return parts.join('\n')
+}
+
 /** §7.1 Executor (live) system prompt, built around the active cast. */
 export function executorSystem(cast: CastMember[], profile: Profile): string {
 	const roster = cast.map(memberLine).join('\n')
@@ -39,7 +47,7 @@ export function executorSystem(cast: CastMember[], profile: Profile): string {
 ${roster}
 
 Профиль собеседника (учитывай, как с ним говорить, но НЕ упоминай вслух):
-${profile.summary || '(пока неизвестен)'}
+${profileBlock(profile)}
 
 Правила:
 - Реплики КОРОТКИЕ, рваные. Одна-две фразы.
@@ -50,6 +58,7 @@ ${profile.summary || '(пока неизвестен)'}
 - Роль вслух НЕ называй («я твой оппонент» — нельзя). Она слышна только в том, КАК голос говорит.
 - Никаких преамбул, никакого «вот что думают голоса». Только сцена.
 - intensity: whisper — на грани слышимости; shout — рвётся вперёд; иначе normal.
+- В поле voice ставь id голоса (в скобках после имени), не имя.
 - Язык — язык пользователя.
 
 Верни сцену ТОЛЬКО через инструмент speak.`
@@ -98,7 +107,7 @@ ${intro}
 
 /** §7.3 Casting director — assigns voices to the eight Beebe archetypal slots. */
 export function castingSystem(): string {
-	const roster = ALL_VOICES.map(voiceLine).join('\n')
+	const roster = VOICES.map(voiceLine).join('\n')
 	const slots = ARCHETYPES.map(
 		(a) => `- ${a.id} (${a.name}, ${a.polarity}/${a.axis}): ${a.stance}`
 	).join('\n')
@@ -153,7 +162,7 @@ export const SPEAK_TOOL = {
 			scene: {
 				type: 'array',
 				minItems: 1,
-				maxItems: 7,
+				maxItems: 8,
 				items: {
 					type: 'object',
 					required: ['voice', 'line'],
